@@ -56,10 +56,14 @@ export const handler = async (event: APIGatewayProxyEventV2WithJWTAuthorizer): P
       return respond(200, { deals: [], count: 0 });
     }
 
-    // Each result is [dealId, distance]
+    // Each result is [dealId, distance] (ioredis returns nested arrays with WITHDIST)
     const idsWithDist: Array<{ dealId: string; distance: number }> = [];
-    for (let i = 0; i < dealIds.length; i += 2) {
-      idsWithDist.push({ dealId: dealIds[i] as string, distance: parseFloat(dealIds[i + 1] as string) });
+    for (const entry of dealIds) {
+      if (Array.isArray(entry)) {
+        idsWithDist.push({ dealId: entry[0] as string, distance: parseFloat(entry[1] as string) });
+      } else {
+        idsWithDist.push({ dealId: entry as string, distance: 0 });
+      }
     }
 
     // Try cache first, fallback to DynamoDB

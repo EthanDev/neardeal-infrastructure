@@ -75,6 +75,7 @@ export const handler = async (event: APIGatewayProxyEventV2WithJWTAuthorizer): P
         SK: `CLAIM#${userId}`,
         GSI3PK: `USER#${userId}`,
         GSI3SK: `CLAIM#${now}`,
+        GSI4PK: `CLAIM#${claimId}`,
         claimId,
         dealId,
         userId,

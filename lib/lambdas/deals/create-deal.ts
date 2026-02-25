@@ -64,6 +64,8 @@ export const handler = async (event: APIGatewayProxyEventV2WithJWTAuthorizer): P
     }
     if (discountedPrice >= originalPrice) return respond(400, { message: 'Discounted price must be less than original price' });
 
+    const cityNormalized = city.toLowerCase();
+
     const dealId = randomUUID();
     const now = new Date().toISOString();
     const secret = await getHmacSecret();
@@ -87,7 +89,7 @@ export const handler = async (event: APIGatewayProxyEventV2WithJWTAuthorizer): P
       claimCount: 0,
       status: 'active',
       district,
-      city,
+      city: cityNormalized,
       latitude,
       longitude,
       qrSignature,
@@ -103,19 +105,19 @@ export const handler = async (event: APIGatewayProxyEventV2WithJWTAuthorizer): P
 
     // Index in Redis geo set for nearby queries
     const r = getRedis();
-    await r.geoadd(`geo:deals:${city}`, longitude, latitude, dealId);
+    await r.geoadd(`geo:deals:${cityNormalized}`, longitude, latitude, dealId);
     // Cache deal metadata
     await r.set(`deal:${dealId}`, JSON.stringify(item), 'EX', 3600);
 
     if (body.isFlash) {
       const flashTtl = Math.floor((new Date(body.flashExpiresAt!).getTime() - Date.now()) / 1000);
       if (flashTtl > 0) {
-        await r.set(`flash:${city}:${dealId}`, JSON.stringify({ dealId, title, discountedPrice, originalPrice, flashExpiresAt: body.flashExpiresAt }), 'EX', flashTtl);
+        await r.set(`flash:${cityNormalized}:${dealId}`, JSON.stringify({ dealId, title, discountedPrice, originalPrice, flashExpiresAt: body.flashExpiresAt }), 'EX', flashTtl);
       }
     }
 
     // Increment city stats
-    await r.incr(`stats:deals:${city}`);
+    await r.incr(`stats:deals:${cityNormalized}`);
 
     return respond(201, { dealId, qrSignature, message: 'Deal created' });
   } catch (err) {
