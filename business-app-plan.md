@@ -2,7 +2,7 @@
 
 ## Overview
 
-A mobile-first Progressive Web App (PWA) for businesses to create deals, scan QR codes, view analytics, and manage subscriptions. Built with Next.js 14 App Router, deployed via Amplify Hosting at `business.neardeal.ro`.
+A native iOS app for businesses to create deals, scan QR codes, view analytics, and manage subscriptions. Built with Expo (React Native), TypeScript, and NativeWind (Tailwind for RN). Distributed via TestFlight and the App Store.
 
 **Primary language:** Romanian | **Secondary language:** English
 **Design:** Dark theme matching brand identity (bg `#0c0c0f`, accent `#c8e000`, typography Syne headings + DM Sans body)
@@ -13,17 +13,20 @@ A mobile-first Progressive Web App (PWA) for businesses to create deals, scan QR
 
 | Layer | Choice | Rationale |
 |---|---|---|
-| Framework | Next.js 14 (App Router) | SSR, file-based routing, API routes |
+| Framework | Expo SDK 52 (managed workflow) | OTA updates, EAS Build, native modules |
 | Language | TypeScript | Type safety across codebase |
-| Styling | Tailwind CSS + custom theme | Utility-first, matches design tokens |
+| Navigation | expo-router (file-based) | Native stack/tab navigation, deep linking |
+| Styling | NativeWind v4 (Tailwind) | Utility-first, familiar Tailwind API |
 | State | Zustand | Lightweight, no boilerplate |
 | Forms | react-hook-form + zod | Validation, performance |
-| i18n | next-intl@3 | App Router native, message catalogs |
-| Charts | Recharts | Composable, responsive |
-| QR Scanner | html5-qrcode | No native dependencies |
-| PWA | @ducanh2912/next-pwa | Service worker, offline support |
+| i18n | i18next + react-i18next + expo-localization | Mature RN i18n, device locale detection |
+| Charts | react-native-chart-kit | Lightweight, SVG-based |
+| QR Scanner | expo-camera (CameraView + barcode) | Native camera, built-in barcode scanning |
 | Auth | amazon-cognito-identity-js | Direct Cognito integration (no Amplify) |
+| Storage | expo-secure-store | Encrypted token storage on device |
 | HTTP | Custom fetch wrapper | JWT auto-attach, token refresh |
+| Haptics | expo-haptics | Tactile feedback on scan success/error |
+| Push | expo-notifications + SNS | Push via FCM/APNs through existing infra |
 
 ---
 
@@ -31,215 +34,238 @@ A mobile-first Progressive Web App (PWA) for businesses to create deals, scan QR
 
 ```
 neardeal-business/
-├── public/
-│   ├── manifest.json
-│   ├── icons/                    # PWA icons (192, 512)
-│   ├── splash.svg
-│   └── locales/
-│       ├── ro.json
-│       └── en.json
-├── src/
-│   ├── app/
-│   │   ├── [locale]/
-│   │   │   ├── layout.tsx        # Root layout (providers, nav)
-│   │   │   ├── page.tsx          # Redirect to /dashboard
-│   │   │   ├── (auth)/
-│   │   │   │   ├── splash/page.tsx
-│   │   │   │   ├── login/page.tsx
-│   │   │   │   ├── signup/page.tsx
-│   │   │   │   ├── reset-password/page.tsx
-│   │   │   │   └── layout.tsx    # Auth layout (no nav)
-│   │   │   ├── (app)/
-│   │   │   │   ├── dashboard/page.tsx
-│   │   │   │   ├── deals/
-│   │   │   │   │   ├── page.tsx          # My Deals list
-│   │   │   │   │   ├── create/page.tsx   # Create Deal wizard
-│   │   │   │   │   └── [id]/page.tsx     # Deal detail
-│   │   │   │   ├── scanner/page.tsx      # QR redemption
-│   │   │   │   ├── analytics/page.tsx
-│   │   │   │   ├── profile/page.tsx
-│   │   │   │   ├── subscription/page.tsx
-│   │   │   │   └── layout.tsx    # App layout (bottom nav)
-│   │   │   └── not-found.tsx
-│   │   └── api/                  # Optional BFF endpoints
-│   ├── components/
-│   │   ├── ui/                   # Button, Input, Card, Modal, Toast
-│   │   ├── auth/                 # LoginForm, SignupForm, SocialButtons
-│   │   ├── deals/                # DealCard, DealWizard, DealList
-│   │   ├── scanner/              # QrScanner, RedemptionResult
-│   │   ├── analytics/            # KpiCard, ChartCard, DateFilter
-│   │   ├── nav/                  # BottomNav, TopBar, LanguageToggle
-│   │   └── layout/               # SplashScreen, PageTransition
-│   ├── lib/
-│   │   ├── auth.ts               # Cognito auth helpers
-│   │   ├── api.ts                # Fetch wrapper with JWT
-│   │   ├── store.ts              # Zustand stores
-│   │   └── utils.ts              # Formatters, validators
-│   ├── hooks/
-│   │   ├── useAuth.ts
-│   │   ├── useDeals.ts
-│   │   └── useAnalytics.ts
-│   ├── i18n/
-│   │   ├── config.ts
-│   │   ├── ro.json
-│   │   └── en.json
-│   └── styles/
-│       └── globals.css           # Tailwind base + custom tokens
-├── next.config.js
+├── app/
+│   ├── _layout.tsx               # Root layout (providers, fonts, i18n init)
+│   ├── index.tsx                  # Splash screen -> auth check -> redirect
+│   ├── (auth)/
+│   │   ├── _layout.tsx           # Auth stack (no tabs)
+│   │   ├── login.tsx
+│   │   ├── signup.tsx
+│   │   └── reset-password.tsx
+│   ├── (tabs)/
+│   │   ├── _layout.tsx           # Tab navigator (5 tabs)
+│   │   ├── dashboard.tsx
+│   │   ├── deals/
+│   │   │   ├── _layout.tsx       # Deals stack
+│   │   │   ├── index.tsx         # My Deals list
+│   │   │   ├── create.tsx        # Create Deal wizard
+│   │   │   └── [id].tsx          # Deal detail
+│   │   ├── create.tsx            # Center tab -> deals/create redirect
+│   │   ├── scanner.tsx           # QR redemption
+│   │   └── profile/
+│   │       ├── _layout.tsx
+│   │       ├── index.tsx         # Profile & settings
+│   │       ├── subscription.tsx
+│   │       └── analytics.tsx
+├── components/
+│   ├── ui/                       # Button, Input, Card, Modal, Toast
+│   ├── auth/                     # LoginForm, SignupForm, SocialButtons
+│   ├── deals/                    # DealCard, DealWizard, StepIndicator
+│   ├── scanner/                  # ScannerOverlay, RedemptionResult
+│   ├── analytics/                # KpiCard, ChartCard, DateFilter
+│   └── nav/                      # TabBar, Header, LanguageToggle
+├── lib/
+│   ├── auth.ts                   # Cognito auth helpers
+│   ├── api.ts                    # Fetch wrapper with JWT
+│   ├── store.ts                  # Zustand stores (auth, deals, ui)
+│   └── utils.ts                  # Formatters, validators
+├── hooks/
+│   ├── useAuth.ts
+│   ├── useDeals.ts
+│   └── useAnalytics.ts
+├── i18n/
+│   ├── index.ts                  # i18next init
+│   ├── ro.json
+│   └── en.json
+├── assets/
+│   ├── fonts/
+│   │   ├── Syne-Bold.ttf
+│   │   ├── Syne-SemiBold.ttf
+│   │   ├── DMSans-Regular.ttf
+│   │   ├── DMSans-Medium.ttf
+│   │   └── DMSans-Bold.ttf
+│   ├── images/
+│   │   ├── splash.png
+│   │   ├── icon.png
+│   │   └── adaptive-icon.png
+│   └── icons/                    # Flat SVG icons (react-native-svg)
+├── app.json                      # Expo config
+├── eas.json                      # EAS Build profiles (dev, preview, prod)
 ├── tailwind.config.ts
+├── nativewind-env.d.ts
 ├── tsconfig.json
 └── package.json
 ```
 
 ---
 
-## Design Tokens
+## Design Tokens (tailwind.config.ts)
 
 ```typescript
-const theme = {
-  colors: {
-    bg: '#0c0c0f',
-    surface: '#1a1a1f',
-    surfaceHover: '#242429',
-    border: '#2a2a30',
-    accent: '#c8e000',
-    accentMuted: '#a0b300',
-    text: '#ffffff',
-    textSecondary: '#8a8a8f',
-    textTertiary: '#5a5a5f',
-    success: '#22c55e',
-    error: '#ef4444',
-    warning: '#f59e0b',
+import type { Config } from 'tailwindcss';
+
+export default {
+  content: ['./app/**/*.tsx', './components/**/*.tsx'],
+  presets: [require('nativewind/preset')],
+  theme: {
+    extend: {
+      colors: {
+        bg: '#0c0c0f',
+        surface: '#1a1a1f',
+        'surface-hover': '#242429',
+        border: '#2a2a30',
+        accent: '#c8e000',
+        'accent-muted': '#a0b300',
+        'text-primary': '#ffffff',
+        'text-secondary': '#8a8a8f',
+        'text-tertiary': '#5a5a5f',
+        success: '#22c55e',
+        error: '#ef4444',
+        warning: '#f59e0b',
+      },
+      fontFamily: {
+        'heading': ['Syne-Bold'],
+        'heading-semi': ['Syne-SemiBold'],
+        'body': ['DMSans-Regular'],
+        'body-medium': ['DMSans-Medium'],
+        'body-bold': ['DMSans-Bold'],
+      },
+      borderRadius: {
+        sm: '8px',
+        md: '12px',
+        lg: '16px',
+      },
+    },
   },
-  fonts: {
-    heading: 'Syne, sans-serif',
-    body: 'DM Sans, sans-serif',
-  },
-  radius: {
-    sm: '8px',
-    md: '12px',
-    lg: '16px',
-    full: '9999px',
-  },
-};
+  plugins: [],
+} satisfies Config;
 ```
 
 ---
 
 ## Screens & Features
 
-### 1. Splash Screen
-- App logo centered on `#0c0c0f` background
-- 2-second display, then auto-redirect:
-  - Has valid session -> `/dashboard`
-  - No session -> `/login`
-- Language auto-detected from browser, stored in localStorage
+### 1. Splash Screen (`app/index.tsx`)
+- App logo centered on `bg` background with subtle fade-in animation
+- Checks `expo-secure-store` for refresh token
+- Valid session -> navigate to `/(tabs)/dashboard`
+- No session -> navigate to `/(auth)/login`
+- Device locale detected via `expo-localization`, sets i18n language
 
 ### 2. Authentication
 
-#### 2.1 Signup
+#### 2.1 Signup (`app/(auth)/signup.tsx`)
 - **Step 1:** Business name, owner name, email, password (strength indicator), confirm password
-- **Step 2:** Business category (dropdown), address, city, district
-- **Social sign-in buttons:** Apple, Google, Facebook (via Cognito Hosted UI redirect)
+- **Step 2:** Business category (picker), address, city, district
+- **Social sign-in:** Apple (native via `expo-apple-authentication`), Google (`expo-auth-session`), Facebook (`expo-auth-session`)
+  - Social providers exchange tokens with Cognito federated identity
 - Password requirements displayed inline: 8+ chars, 1 uppercase, 1 number
-- "Already have an account?" link to login
+- "Already have an account?" pressable to login
 - On success: Cognito post-confirmation trigger creates business profile in DynamoDB
+- Keyboard-aware scroll view for form fields
 
-#### 2.2 Login
+#### 2.2 Login (`app/(auth)/login.tsx`)
 - Email + password fields
-- "Forgot password?" link
+- "Forgot password?" pressable
 - Social sign-in buttons (same 3 providers)
-- "Don't have an account?" link to signup
-- Remember me checkbox (extends refresh token usage)
+- "Don't have an account?" pressable to signup
+- Biometric login option (Face ID/Touch ID via `expo-local-authentication`) if returning user
 
-#### 2.3 Reset Password
+#### 2.3 Reset Password (`app/(auth)/reset-password.tsx`)
 - **Step 1:** Enter email -> sends Cognito verification code
 - **Step 2:** Enter code + new password + confirm password
-- Success -> redirect to login with toast
+- Success -> navigate to login with toast
 
 #### 2.4 Language Toggle
-- Globe icon in top-right of auth screens
-- Dropdown: "Romana" / "English"
-- Persisted to localStorage, applied via next-intl locale routing
+- Globe icon in header of auth screens
+- Bottom sheet picker: "Romana" / "English"
+- Persisted to `expo-secure-store`, applied via i18next `changeLanguage()`
 
-### 3. Dashboard (Home)
-- **Top bar:** Business name, notification bell, language toggle
-- **KPI row (4 cards):**
+### 3. Dashboard (`app/(tabs)/dashboard.tsx`)
+- **Header:** Business name, notification bell, language toggle
+- **KPI row (2x2 grid):**
   - Active Deals count
   - Total Claims (today)
   - Revenue saved for customers
   - Redemption rate %
-- **Quick actions:** Create Deal (primary CTA), Scan QR
-- **Recent activity feed:** Last 5 claim/redemption events with timestamps
-- **Pull-to-refresh** for mobile feel
+- **Quick actions:** Create Deal (primary CTA), Scan QR (secondary)
+- **Recent activity feed:** FlatList of last 10 claim/redemption events with timestamps
+- **Pull-to-refresh** via RefreshControl
 
-### 4. Create Deal (5-Step Wizard)
-- **Step 1 — Basics:** Title, description, category (dropdown)
+### 4. Create Deal (`app/(tabs)/deals/create.tsx`)
+- **Step 1 — Basics:** Title, description, category (picker)
 - **Step 2 — Pricing:** Original price, discounted price (auto-calculates % off), max claims
-- **Step 3 — Location:** Map pin (Leaflet/Mapbox), auto-filled from business profile, editable
-- **Step 4 — Timing:** Expiry date/time picker, flash deal toggle (if toggled: flash expiry picker)
-- **Step 5 — Review:** Summary card, image upload (optional), confirm button
-- Progress bar at top showing steps 1-5
-- Back/Next navigation, draft auto-saved to localStorage
+- **Step 3 — Location:** Map view (`react-native-maps`), pin auto-placed from business profile, draggable
+- **Step 4 — Timing:** Date/time picker (`@react-native-community/datetimepicker`), flash deal toggle (if toggled: flash expiry picker)
+- **Step 5 — Review:** Summary card, image upload via `expo-image-picker`, confirm button
+- Step indicator bar at top (1-5)
+- Swipe or button navigation between steps
+- Draft auto-saved to AsyncStorage
 
-### 5. My Deals
-- **Tabs:** Active | Expired | Draft
-- **Deal cards:** Title, category badge, claims progress bar (`claimCount/maxClaims`), time remaining, status badge
-- **Actions per deal:** View detail, pause/resume, duplicate, delete
-- **Sort:** Newest, ending soon, most claimed
+### 5. My Deals (`app/(tabs)/deals/index.tsx`)
+- **Segmented control:** Active | Expired | Draft
+- **Deal cards:** Title, category badge, claims progress bar (`claimCount/maxClaims`), countdown timer, status badge
+- **Swipe actions:** Pause/resume (left), delete (right)
+- **Sort:** Bottom sheet with options: newest, ending soon, most claimed
 - **Empty state:** Illustration + "Create your first deal" CTA
+- FlatList with pull-to-refresh
 
-### 6. Deal Detail
-- Full deal info with live claim counter
-- QR code display (for in-store posting)
-- Claim history table (who claimed, when, redeemed?)
+### 6. Deal Detail (`app/(tabs)/deals/[id].tsx`)
+- Full deal info in scrollable view
+- Live claim counter (polls or WebSocket)
+- QR code display (generated via `react-native-qrcode-svg`) for in-store posting
+- Share button (expo-sharing) to export QR as image
+- Claim history list (who claimed, when, redeemed?)
 - Edit button (limited fields editable after creation)
 
-### 7. QR Scanner
-- Full-screen camera view using html5-qrcode
+### 7. QR Scanner (`app/(tabs)/scanner.tsx`)
+- Full-screen native camera via `expo-camera` CameraView with barcode scanning
+- Scan overlay with viewfinder frame
 - Scans `claimId:hmacSignature` from consumer's QR
 - Calls `POST /api/claims/redeem` with scanned payload
-- **Success state:** Green checkmark, deal title, discount amount, animation
-- **Error states:** Already redeemed, expired, invalid QR — each with clear message
-- Manual code entry fallback (text input)
+- **Success state:** Green checkmark animation (react-native-reanimated), deal title, discount amount, haptic success feedback
+- **Error states:** Already redeemed, expired, invalid QR — each with clear message + haptic error
+- Manual code entry fallback (text input at bottom)
+- Torch toggle button
 
-### 8. Analytics
-- **Date range filter:** Today, 7 days, 30 days, custom
+### 8. Analytics (`app/(tabs)/profile/analytics.tsx`)
+- **Date range filter:** Segmented control: Today, 7d, 30d, Custom (date picker)
 - **Charts:**
   - Claims over time (line chart)
   - Top deals by claims (horizontal bar)
   - Redemption rate trend (area chart)
   - Revenue impact (claims x discount value)
-- **Export:** CSV download button
+- **Share:** Export as image via `expo-sharing`
 
-### 9. Profile & Settings
-- Business info (editable): name, address, logo upload, category
+### 9. Profile & Settings (`app/(tabs)/profile/index.tsx`)
+- Business info (editable): name, address, logo upload (`expo-image-picker`), category
 - Account: email (read-only), change password
 - Notification preferences: push toggle, email digest toggle
-- Language setting
-- Delete account (with confirmation modal)
-- Logout
+- Language setting (same bottom sheet picker)
+- App version display
+- Delete account (with confirmation alert)
+- Logout (with confirmation)
 
-### 10. Subscription
+### 10. Subscription (`app/(tabs)/profile/subscription.tsx`)
 - Current plan display with usage meter (deals created / plan limit)
 - Plan comparison cards: Free, Pro, Premium
-- Upgrade CTA -> Stripe Checkout redirect
-- Billing history table
-- Cancel subscription (with retention modal)
+- Upgrade CTA -> Opens Stripe payment link in `expo-web-browser`
+- Billing history list
+- Cancel subscription (with retention bottom sheet)
 
 ---
 
-## Bottom Navigation (5 tabs)
+## Tab Bar (5 tabs)
 
 | Icon | Label (RO) | Label (EN) | Route |
 |---|---|---|---|
-| Home | Acasa | Home | /dashboard |
-| Deals | Oferte | Deals | /deals |
-| + (FAB) | Creeaza | Create | /deals/create |
-| Scanner | Scaneaza | Scan | /scanner |
-| Profil | Profil | Profile | /profile |
+| Home | Acasa | Home | /(tabs)/dashboard |
+| Deals | Oferte | Deals | /(tabs)/deals |
+| + (raised) | Creeaza | Create | /(tabs)/create |
+| Scanner | Scaneaza | Scan | /(tabs)/scanner |
+| Profil | Profil | Profile | /(tabs)/profile |
 
-Center tab is elevated (floating action button style) with accent color.
+Center tab has a raised circular button with accent background color. Custom tab bar component via `tabBar` prop on Tab layout.
 
 ---
 
@@ -253,44 +279,57 @@ Center tab is elevated (floating action button style) with accent color.
                            │
                     ┌──────┴──────┐
                     │             │
-              Email/Pass    Social (Hosted UI)
-                           Apple/Google/Facebook
+              Email/Pass    Social (Native)
+                         Apple / Google / Facebook
 ```
 
 **Token management:**
 - Access token (1hr) stored in memory (Zustand)
-- Refresh token (30d) stored in secure httpOnly cookie or localStorage
+- Refresh token (30d) stored in `expo-secure-store` (encrypted keychain)
+- ID token used for API calls (JWT authorizer expects this)
 - Auto-refresh on 401 response via fetch wrapper
-- Silent refresh on app foreground
+- Silent refresh on AppState `active` event
 
 **Auth state (Zustand):**
 ```typescript
 interface AuthState {
   user: CognitoUser | null;
   businessId: string | null;
+  accessToken: string | null;
   isAuthenticated: boolean;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<void>;
   signup: (data: SignupData) => Promise<void>;
+  socialSignIn: (provider: 'apple' | 'google' | 'facebook') => Promise<void>;
   logout: () => void;
   refreshSession: () => Promise<void>;
 }
 ```
 
 **Protected routes:**
-- Middleware in `src/middleware.ts` checks for valid session
-- Unauthenticated users redirected to `/login`
-- Auth pages redirect to `/dashboard` if already authenticated
+- Root layout checks auth state on mount
+- Unauthenticated users redirected to `/(auth)/login` via `router.replace`
+- Auth screens redirect to `/(tabs)/dashboard` if already authenticated
 
 ---
 
 ## Internationalization
 
-**next-intl configuration:**
-- Default locale: `ro`
-- Supported locales: `['ro', 'en']`
-- Locale stored in URL path: `/ro/dashboard`, `/en/dashboard`
-- Language toggle switches locale and redirects
+**i18next configuration:**
+```typescript
+import i18n from 'i18next';
+import { initReactI18next } from 'react-i18next';
+import * as Localization from 'expo-localization';
+import ro from './ro.json';
+import en from './en.json';
+
+i18n.use(initReactI18next).init({
+  resources: { ro: { translation: ro }, en: { translation: en } },
+  lng: Localization.locale.startsWith('ro') ? 'ro' : 'en',
+  fallbackLng: 'en',
+  interpolation: { escapeValue: false },
+});
+```
 
 **Translation file structure (flat keys):**
 ```json
@@ -323,10 +362,12 @@ interface AuthState {
 
 ## API Integration
 
-All API calls go through `src/lib/api.ts`:
+All API calls go through `lib/api.ts`:
 
 ```typescript
-const API_BASE = process.env.NEXT_PUBLIC_API_URL; // per-stage
+import { useAuthStore } from './store';
+
+const API_BASE = process.env.EXPO_PUBLIC_API_URL;
 
 async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
   const token = useAuthStore.getState().accessToken;
@@ -361,110 +402,133 @@ async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
 
 ---
 
-## PWA Configuration
+## EAS Build Configuration (eas.json)
 
 ```json
 {
-  "name": "NearDeal Business",
-  "short_name": "NearDeal Biz",
-  "start_url": "/ro/dashboard",
-  "display": "standalone",
-  "background_color": "#0c0c0f",
-  "theme_color": "#c8e000",
-  "icons": [
-    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
-    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png" }
-  ]
+  "cli": { "version": ">= 12.0.0" },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "ios": { "simulator": true }
+    },
+    "preview": {
+      "distribution": "internal",
+      "ios": { "resourceClass": "m-medium" }
+    },
+    "production": {
+      "ios": { "resourceClass": "m-medium" },
+      "autoIncrement": true
+    }
+  },
+  "submit": {
+    "production": {
+      "ios": { "appleId": "...", "ascAppId": "...", "appleTeamId": "..." }
+    }
+  }
 }
 ```
-
-- Service worker caches static assets and API responses (stale-while-revalidate)
-- Offline fallback page with "No connection" message
-- Add-to-homescreen prompt after 2nd visit
 
 ---
 
 ## Performance Strategy
 
-- **Code splitting:** Each route is a dynamic import (Next.js automatic)
-- **Image optimization:** next/image with WebP, lazy loading
-- **Bundle target:** < 200KB initial JS (gzipped)
-- **Lighthouse target:** 90+ on all metrics
-- **Font loading:** `next/font` with `display: swap` for Syne + DM Sans
-- **API caching:** SWR pattern via Zustand + stale timers
+- **Navigation:** Native stack navigators (no JS-based transitions)
+- **Lists:** FlatList with `getItemLayout` for fixed-height items, `windowSize` tuning
+- **Images:** `expo-image` (backed by SDWebImage) with caching and blurhash placeholders
+- **Animations:** `react-native-reanimated` for 60fps UI thread animations
+- **Bundle:** Hermes engine (default in Expo SDK 52) for faster startup
+- **OTA updates:** `expo-updates` for instant JS bundle patches without App Store review
+- **Font loading:** `expo-font` with `SplashScreen.preventAutoHideAsync()` until fonts ready
 
 ---
 
 ## Task List
 
 ### Phase 1: Project Setup (Days 1-2)
-- [ ] Initialize Next.js 14 project with TypeScript
-- [ ] Configure Tailwind CSS with custom design tokens
-- [ ] Set up next-intl with ro/en locales
-- [ ] Configure @ducanh2912/next-pwa
+- [ ] Create Expo project: `npx create-expo-app neardeal-business --template tabs`
+- [ ] Install and configure NativeWind v4 with custom tailwind.config.ts
+- [ ] Load custom fonts (Syne, DM Sans) via expo-font
+- [ ] Set up i18next with ro/en locales and expo-localization
 - [ ] Set up Zustand stores (auth, deals, ui)
-- [ ] Create reusable UI components (Button, Input, Card, Modal, Toast)
-- [ ] Set up `src/lib/api.ts` fetch wrapper
-- [ ] Configure environment variables per stage
+- [ ] Create reusable UI components (Button, TextInput, Card, BottomSheet, Toast)
+- [ ] Set up `lib/api.ts` fetch wrapper
+- [ ] Configure `app.json` (bundle ID, splash, icons, scheme)
+- [ ] Configure EAS Build profiles (dev, preview, prod)
+- [ ] Set up environment variables via `EXPO_PUBLIC_` prefix
 
 ### Phase 2: Authentication (Days 3-5)
-- [ ] Implement Cognito auth helpers (`src/lib/auth.ts`)
-- [ ] Build Splash screen with auto-redirect logic
+- [ ] Implement Cognito auth helpers (`lib/auth.ts`) using amazon-cognito-identity-js
+- [ ] Build Splash screen with token check and animated logo
 - [ ] Build Login screen (email/password + social buttons)
-- [ ] Build Signup screen (2-step form with validation)
+- [ ] Build Signup screen (2-step form with validation, keyboard-aware)
 - [ ] Build Reset Password screen (2-step: email -> code + new password)
-- [ ] Add language toggle component to auth screens
-- [ ] Implement auth middleware (protected routes)
-- [ ] Implement token refresh logic
-- [ ] Test social sign-in flow (Apple, Google, Facebook via Hosted UI)
+- [ ] Implement Apple Sign-In via expo-apple-authentication
+- [ ] Implement Google/Facebook Sign-In via expo-auth-session
+- [ ] Add language toggle bottom sheet to auth screens
+- [ ] Implement auth guard in root layout (redirect logic)
+- [ ] Implement token storage in expo-secure-store
+- [ ] Implement token refresh on 401 and AppState foreground
 
 ### Phase 3: Core Screens (Days 6-10)
-- [ ] Build Bottom Navigation with 5 tabs
-- [ ] Build Dashboard screen (KPI cards, quick actions, activity feed)
-- [ ] Build Create Deal wizard (5 steps with progress bar)
-- [ ] Build My Deals screen (tabs, deal cards, sort/filter)
-- [ ] Build Deal Detail screen (info, QR display, claim history)
+- [ ] Build custom tab bar with raised center button
+- [ ] Build Dashboard screen (KPI cards grid, quick actions, activity FlatList)
+- [ ] Build Create Deal wizard (5 steps with step indicator, swipe navigation)
+- [ ] Integrate react-native-maps for location step
+- [ ] Integrate @react-native-community/datetimepicker for timing step
+- [ ] Integrate expo-image-picker for deal image upload
+- [ ] Build My Deals screen (segmented control, deal cards, swipe actions)
+- [ ] Build Deal Detail screen (info, QR code via react-native-qrcode-svg, claim list)
 - [ ] Implement deal CRUD API integration
 
 ### Phase 4: Scanner & Analytics (Days 11-13)
-- [ ] Build QR Scanner screen (html5-qrcode integration)
-- [ ] Implement redemption API call and result states
+- [ ] Build QR Scanner screen (expo-camera CameraView with barcode scanning)
+- [ ] Build scan overlay with viewfinder frame and torch toggle
+- [ ] Implement redemption API call with success/error animations (reanimated)
+- [ ] Add haptic feedback (expo-haptics) on scan results
 - [ ] Add manual code entry fallback
-- [ ] Build Analytics screen (date filter, charts with Recharts)
-- [ ] Build CSV export functionality
+- [ ] Build Analytics screen (segmented date filter, charts with react-native-chart-kit)
+- [ ] Implement share/export via expo-sharing
 
 ### Phase 5: Profile & Subscription (Days 14-15)
 - [ ] Build Profile screen (business info edit, logo upload, password change)
-- [ ] Build Subscription screen (plan display, upgrade flow, billing history)
-- [ ] Implement Stripe Checkout redirect for upgrades
-- [ ] Build account deletion flow
-- [ ] Build notification preferences
+- [ ] Build Subscription screen (plan display, usage meter, plan cards)
+- [ ] Implement Stripe payment link via expo-web-browser
+- [ ] Build notification preferences (expo-notifications permission + toggles)
+- [ ] Build account deletion flow with alert confirmation
+- [ ] Build logout with confirmation
 
-### Phase 6: Polish & Deploy (Days 16-18)
+### Phase 6: Polish & Submit (Days 16-18)
 - [ ] Complete all Romanian translations
 - [ ] Complete all English translations
-- [ ] Add page transitions and loading states
-- [ ] Implement pull-to-refresh on Dashboard
-- [ ] Test PWA install flow (Android + iOS)
-- [ ] Lighthouse audit and performance optimization
+- [ ] Add screen transition animations
+- [ ] Add loading skeletons for data-fetching screens
+- [ ] Implement pull-to-refresh on Dashboard and My Deals
 - [ ] Test all flows end-to-end against dev API
-- [ ] Deploy to Amplify Hosting (dev -> staging -> prod)
+- [ ] EAS Build: create preview build, test on physical device via TestFlight
+- [ ] Performance audit: startup time, list scroll FPS, memory usage
+- [ ] EAS Build: create production build
+- [ ] EAS Submit: submit to App Store Connect
 
 ---
 
 ## Verification Checklist
 
 - [ ] Signup flow creates business in Cognito + DynamoDB profile
-- [ ] Login returns valid JWT, stored correctly, auto-refreshes
-- [ ] Social sign-in redirects to Cognito Hosted UI and returns correctly
+- [ ] Login returns valid JWT, stored in secure store, auto-refreshes
+- [ ] Apple/Google/Facebook sign-in works end-to-end
+- [ ] Biometric login (Face ID) works for returning users
 - [ ] Language toggle switches all visible text between RO and EN
 - [ ] Create Deal wizard writes to DynamoDB + Redis geo index
 - [ ] QR Scanner successfully redeems a claim (one-time only)
+- [ ] Haptic feedback fires on scan success and error
 - [ ] Dashboard KPIs match actual data from API
 - [ ] Analytics charts render correctly with real data
-- [ ] PWA installs on Android and iOS with correct icon/colors
-- [ ] Offline fallback page displays when disconnected
+- [ ] App installs via TestFlight and launches correctly
+- [ ] Push notifications received when consumer claims a deal
 - [ ] All API errors display user-friendly messages in correct language
-- [ ] Protected routes redirect unauthenticated users to login
+- [ ] Protected screens redirect unauthenticated users to login
 - [ ] Password reset flow works end-to-end
-- [ ] Subscription upgrade redirects to Stripe and updates plan on success
+- [ ] Subscription upgrade opens Stripe and updates plan on success
+- [ ] OTA update via expo-updates delivers correctly
